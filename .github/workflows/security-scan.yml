@@ -1,0 +1,37 @@
+name: Action Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t testingcontainer:latest .
+
+      - name: Run Trivy scan on Docker image
+        uses: aquasecurity/trivy-action@0.10.0
+        with:
+          image-ref: testingcontainer:latest
+          format: table
+          severity: MEDIUM,HIGH,CRITICAL
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep SAST
+        run: semgrep --config p/security-audit . --json --output semgrep-results.json
+
+      - name: Upload security scan results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-scan-results
+          path: semgrep-results.json
+          retention-days: 30
